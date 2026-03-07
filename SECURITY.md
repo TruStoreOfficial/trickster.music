@@ -1,5 +1,5 @@
 # Security Policy
-The security information of gamester.gg and other useful tools and stuff.
+The security information of trickster.music and other useful tools and stuff.
 
 We also use ALL integrated Github security features to ensure the best experience possible!
 
