@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Trickster Music</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        yt: {
+                            bg: '#030303',
+                            surface: '#181818',
+                            surfaceHover: '#282828',
+                            accent: '#ff0033', 
+                            text: '#ffffff',
+                            textMuted: '#aaaaaa'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'Roboto', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        body {
+            background-color: #030303;
+            color: #ffffff;
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            overflow: hidden;
+        }
+        
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #030303;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2a2a2a;
+            border-radius: 20px;
+            border: 2px solid #030303;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #ff0033;
+        }
+
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .album-art-container .play-overlay {
+            opacity: 0;
+            transition: all 0.2s ease-in-out;
+        }
+        .album-art-container:hover .play-overlay {
+            opacity: 1;
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .glass-nav {
+            background: rgba(3, 3, 3, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        .page-transition {
+            transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        #main-scroll-area {
+            height: calc(100vh - 72px - 90px);
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid #ff0033;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="antialiased h-screen w-full flex flex-col selection:bg-yt-accent selection:text-white">
+
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen" class="absolute inset-0 z-50 flex items-center justify-center bg-yt-bg page-transition">
+        <div class="w-full max-w-md p-8 bg-yt-surface rounded-2xl shadow-2xl border border-white/5 flex flex-col items-center">
+            <div class="w-20 h-20 bg-gradient-to-br from-yt-accent to-purple-600 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(255,0,51,0.3)]">
+                <i class="ph-fill ph-mask-happy text-4xl text-white"></i>
+            </div>
+            <h1 class="text-3xl font-bold tracking-tight mb-2">Trickster Music</h1>
+            <p class="text-yt-textMuted mb-8 text-center">Connected to TruStore DB</p>
+
+            <form id="login-form" class="w-full space-y-4">
+                <input type="text" id="access-id" placeholder="Access ID" class="w-full bg-[#0f0f0f] border border-white/10 text-white rounded-xl py-3 px-4 focus:outline-none focus:border-yt-accent" value="trickster_vip">
+                <input type="password" id="passcode" placeholder="Passcode" class="w-full bg-[#0f0f0f] border border-white/10 text-white rounded-xl py-3 px-4 focus:outline-none focus:border-yt-accent" value="••••••••">
+                <button type="submit" class="w-full bg-yt-accent hover:bg-red-600 text-white font-semibold rounded-xl py-3.5 flex justify-center items-center gap-2 transition-all active:scale-95">
+                    <span>Unlock Library</span>
+                    <i class="ph-bold ph-arrow-right"></i>
+                </button>
+            </form>
+            <button type="button" id="guest-btn" class="mt-6 text-sm text-yt-textMuted hover:text-white transition-colors">Use as a guest</button>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="main-app" class="hidden flex-col h-full w-full opacity-0 page-transition translate-y-4">
+        <nav class="glass-nav h-[72px] sticky top-0 z-30 w-full px-4 md:px-8 py-4 flex items-center justify-between border-b border-white/5">
+            <div class="flex items-center gap-3">
+                <i class="ph-fill ph-mask-happy text-3xl text-yt-accent"></i>
+                <span class="text-xl font-bold tracking-tight">Trickster</span>
+            </div>
+            <div class="flex-1 max-w-xl mx-4 hidden md:flex items-center bg-white/10 rounded-full px-4 py-2">
+                <i class="ph ph-magnifying-glass text-yt-textMuted mr-2"></i>
+                <input type="text" placeholder="Search J-Pop, Electronic..." class="bg-transparent border-none outline-none w-full text-sm text-white">
+            </div>
+            <div class="w-8 h-8 rounded-full bg-yt-accent flex items-center justify-center font-bold">T</div>
+        </nav>
+
+        <div id="main-scroll-area">
+            <main class="pt-6 px-4 md:px-8 pb-10" id="library-content">
+                <div id="global-loader" class="flex flex-col items-center justify-center py-20 gap-4">
+                    <div class="spinner"></div>
+                    <p class="text-yt-textMuted animate-pulse">Syncing tracks from GitHub DB...</p>
+                </div>
+            </main>
+        </div>
+
+        <!-- PLAYER -->
+        <div class="h-[90px] fixed bottom-0 left-0 w-full bg-[#121212] border-t border-white/10 z-40 px-4 py-3 flex items-center justify-between">
+            <div class="absolute top-0 left-0 w-full h-1 bg-white/10">
+                <div id="player-progress" class="h-full bg-yt-accent w-0 transition-all duration-300"></div>
+            </div>
+
+            <div class="flex items-center gap-4 w-1/3 truncate">
+                <div class="w-12 h-12 rounded bg-yt-surface flex-shrink-0 flex items-center justify-center overflow-hidden">
+                    <img id="player-art" src="" class="w-full h-full object-cover hidden">
+                    <i id="player-placeholder" class="ph ph-music-notes text-2xl text-yt-textMuted"></i>
+                </div>
+                <div class="truncate">
+                    <h4 id="player-title" class="text-sm font-semibold truncate">Not Playing</h4>
+                    <p id="player-artist" class="text-xs text-yt-textMuted truncate">Select a track</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-6 justify-center w-1/3">
+                <button class="text-yt-textMuted hover:text-white"><i class="ph-fill ph-skip-back text-2xl"></i></button>
+                <button id="play-pause-btn" class="w-12 h-12 bg-white text-black rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition">
+                    <!-- Added flex and items-center to fix centering -->
+                    <i id="play-icon" class="ph-fill ph-play text-2xl flex items-center justify-center"></i>
+                </button>
+                <button class="text-yt-textMuted hover:text-white"><i class="ph-fill ph-skip-forward text-2xl"></i></button>
+            </div>
+
+            <div class="w-1/3 flex justify-end items-center gap-4 text-yt-textMuted">
+                <i class="ph ph-speaker-high text-xl"></i>
+                <div class="w-24 h-1 bg-white/20 rounded-full hidden md:block">
+                    <div class="w-2/3 h-full bg-white rounded-full"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <audio id="audio-engine"></audio>
+
+    <script>
+        const REPO_OWNER = 'TruStoreOfficial';
+        const REPO_NAME = 'trickster.music';
+        const BASE_PATH = 'localhost';
+        // Updated Categories
+        const CATEGORIES = ['J-Pop', 'Electronic', 'Memes', 'Pop', 'Rap', 'Rock'];
+
+        let elements = {};
+        let library = {};
+        let isPlaying = false;
+
+        const GENRE_COVERS = {
+            'J-Pop': 'https://images.unsplash.com/photo-1526218626217-dc65a29bb444?auto=format&fit=crop&w=300&q=80',
+            'Electronic': 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=300&q=80',
+            'Memes': 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=300&q=80',
+            'Pop': 'https://images.unsplash.com/photo-1493225255756-d9584f8606e9?auto=format&fit=crop&w=300&q=80',
+            'Rap': 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=300&q=80',
+            'Rock': 'https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?auto=format&fit=crop&w=300&q=80'
+        };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            elements = {
+                loginScreen: document.getElementById('login-screen'),
+                loginForm: document.getElementById('login-form'),
+                guestBtn: document.getElementById('guest-btn'),
+                mainApp: document.getElementById('main-app'),
+                libraryContent: document.getElementById('library-content'),
+                audio: document.getElementById('audio-engine'),
+                playerTitle: document.getElementById('player-title'),
+                playerArtist: document.getElementById('player-artist'),
+                playerArt: document.getElementById('player-art'),
+                playerPlaceholder: document.getElementById('player-placeholder'),
+                playPauseBtn: document.getElementById('play-pause-btn'),
+                playIcon: document.getElementById('play-icon'),
+                progressBar: document.getElementById('player-progress')
+            };
+
+            if (elements.loginForm) elements.loginForm.onsubmit = (e) => { e.preventDefault(); enterApp(); };
+            if (elements.guestBtn) elements.guestBtn.onclick = enterApp;
+            
+            if (elements.playPauseBtn) {
+                elements.playPauseBtn.onclick = () => {
+                    if (!elements.audio || !elements.audio.src) return;
+                    isPlaying ? elements.audio.pause() : elements.audio.play();
+                    setPlayState(!isPlaying);
+                };
+            }
+
+            if (elements.audio) {
+                elements.audio.ontimeupdate = () => {
+                    if (elements.audio.duration && elements.progressBar) {
+                        const percent = (elements.audio.currentTime / elements.audio.duration) * 100;
+                        elements.progressBar.style.width = `${percent}%`;
+                    }
+                };
+                elements.audio.onended = () => setPlayState(false);
+            }
+        });
+
+        async function fetchSongsFromRepo() {
+            try {
+                for (const cat of CATEGORIES) {
+                    const apiUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${BASE_PATH}/${cat}`;
+                    const response = await fetch(apiUrl);
+                    if (!response.ok) continue;
+                    
+                    const files = await response.json();
+                    
+                    // Filter audio files and attempt to find matching artwork
+                    const audioFiles = files.filter(file => 
+                        file.name.match(/\.(mp3|wav|mp4|m4a)$/i)
+                    ).map(file => {
+                        const fileName = file.name.replace(/\.[^/.]+$/, "");
+                        
+                        // Try to find an image file with the same name in the same folder list
+                        const artworkFile = files.find(f => 
+                            f.name.startsWith(fileName) && f.name.match(/\.(jpg|jpeg|png|webp|gif)$/i)
+                        );
+
+                        // Parse artist if filename is "Artist - Title"
+                        let title = fileName;
+                        let artist = cat;
+                        if (fileName.includes(" - ")) {
+                            const parts = fileName.split(" - ");
+                            artist = parts[0].trim();
+                            title = parts[1].trim();
+                        }
+
+                        return {
+                            id: file.sha,
+                            title: title.replace(/[_-]/g, " "),
+                            artist: artist.replace(/[_-]/g, " "),
+                            url: file.download_url,
+                            cover: artworkFile ? artworkFile.download_url : GENRE_COVERS[cat] || GENRE_COVERS['Pop']
+                        };
+                    });
+
+                    if (audioFiles.length > 0) library[cat] = audioFiles;
+                }
+                renderLibrary();
+            } catch (err) {
+                console.error("Fetch Error:", err);
+                if (elements.libraryContent) {
+                    elements.libraryContent.innerHTML = `<p class="text-center text-yt-accent py-10">Sync Failed. Verify GitHub Repo Structure.</p>`;
+                }
+            }
+        }
+
+        function renderLibrary() {
+            const container = elements.libraryContent;
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (Object.keys(library).length === 0) {
+                container.innerHTML = `<div class="text-center py-20 text-yt-textMuted">No tracks found. Ensure files are in ${BASE_PATH}/[Genre] folders.</div>`;
+                return;
+            }
+
+            for (const [category, songs] of Object.entries(library)) {
+                const section = document.createElement('div');
+                section.className = 'mb-10';
+                section.innerHTML = `
+                    <h2 class="text-2xl font-bold mb-4 px-2 capitalize tracking-tight">${category}</h2>
+                    <div class="flex overflow-x-auto hide-scrollbar gap-5 px-2 pb-4" id="row-${category.replace(/\s/g, '')}"></div>
+                `;
+                container.appendChild(section);
+
+                const row = document.getElementById(`row-${category.replace(/\s/g, '')}`);
+                songs.forEach(song => {
+                    const card = document.createElement('div');
+                    card.className = 'flex-none w-40 md:w-48 cursor-pointer group';
+                    card.onclick = () => playTrack(song);
+                    card.innerHTML = `
+                        <div class="relative aspect-square mb-3 rounded-2xl overflow-hidden bg-yt-surface album-art-container shadow-lg">
+                            <img src="${song.cover}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500" loading="lazy">
+                            <div class="play-overlay absolute inset-0 flex items-center justify-center">
+                                <div class="w-14 h-14 bg-yt-accent rounded-full flex items-center justify-center shadow-2xl transform scale-90 group-hover:scale-100 transition-transform">
+                                    <i class="ph-fill ph-play text-white text-2xl flex items-center justify-center"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <h3 class="font-semibold text-sm truncate pr-2">${song.title}</h3>
+                        <p class="text-xs text-yt-textMuted truncate">${song.artist}</p>
+                    `;
+                    row.appendChild(card);
+                });
+            }
+        }
+
+        function playTrack(song) {
+            if (!elements.audio) return;
+            elements.audio.src = song.url;
+            elements.audio.play().catch(e => console.error("Playback failed:", e));
+            
+            if (elements.playerTitle) elements.playerTitle.textContent = song.title;
+            if (elements.playerArtist) elements.playerArtist.textContent = song.artist;
+            if (elements.playerArt) {
+                elements.playerArt.src = song.cover;
+                elements.playerArt.classList.remove('hidden');
+            }
+            if (elements.playerPlaceholder) elements.playerPlaceholder.classList.add('hidden');
+            setPlayState(true);
+        }
+
+        function setPlayState(playing) {
+            isPlaying = playing;
+            if (!elements.playIcon) return;
+            if (isPlaying) {
+                elements.playIcon.classList.replace('ph-play', 'ph-pause');
+            } else {
+                elements.playIcon.classList.replace('ph-pause', 'ph-play');
+            }
+        }
+
+        function enterApp() {
+            if (!elements.loginScreen || !elements.mainApp) return;
+            elements.loginScreen.classList.add('opacity-0', '-translate-y-4');
+            setTimeout(() => {
+                elements.loginScreen.style.display = 'none';
+                elements.mainApp.classList.remove('hidden');
+                setTimeout(() => {
+                    elements.mainApp.classList.remove('opacity-0', 'translate-y-4');
+                    fetchSongsFromRepo();
+                }, 50);
+            }, 500);
+        }
+    </script>
+</body>
+</html>
