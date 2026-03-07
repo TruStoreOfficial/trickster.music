@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Trickster Music</title>
     
+    <!-- PWA Metadata -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Trickster">
+    <meta name="theme-color" content="#030303">
+    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -43,6 +49,9 @@
             font-family: 'Inter', sans-serif;
             -webkit-tap-highlight-color: transparent;
             overflow: hidden;
+            /* Safe area insets for mobile notches */
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
         }
         
         ::-webkit-scrollbar {
@@ -89,7 +98,7 @@
         }
 
         #main-scroll-area {
-            height: calc(100vh - 72px - 90px);
+            height: calc(100vh - 72px - 90px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
             overflow-y: auto;
             overflow-x: hidden;
         }
@@ -157,6 +166,19 @@
             background: #ff0033;
             border-radius: 2px;
         }
+
+        /* Responsive Mobile Layout Fixes */
+        @media (max-width: 768px) {
+            #player-controls-center {
+                width: 50%;
+            }
+            #player-info-left {
+                width: 50%;
+            }
+            #player-volume-right {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body class="antialiased h-screen w-full flex flex-col selection:bg-yt-accent selection:text-white">
@@ -203,6 +225,12 @@
                 <i class="ph ph-magnifying-glass text-yt-textMuted mr-2"></i>
                 <input type="text" placeholder="Search..." class="bg-transparent border-none outline-none w-full text-sm text-white">
             </div>
+
+            <!-- Mobile Menu Toggle (Simplified) -->
+            <div class="lg:hidden flex gap-4">
+                <button onclick="switchTab('explore')" class="text-yt-textMuted"><i class="ph ph-compass text-2xl"></i></button>
+                <button onclick="switchTab('playlists')" class="text-yt-textMuted"><i class="ph ph-list-bullets text-2xl"></i></button>
+            </div>
         </nav>
 
         <div id="main-scroll-area">
@@ -215,7 +243,7 @@
         </div>
 
         <!-- PLAYER -->
-        <div class="h-[90px] fixed bottom-0 left-0 w-full bg-[#0a0a0a] border-t border-white/10 z-40 px-4 py-3 flex items-center justify-between">
+        <div class="h-[90px] fixed bottom-0 left-0 w-full bg-[#0a0a0a] border-t border-white/10 z-40 px-4 py-3 flex items-center justify-between pb-[env(safe-area-inset-bottom)]">
             <!-- Skim Bar -->
             <div class="absolute top-0 left-0 w-full bg-white/10 group cursor-pointer" id="progress-container">
                 <div id="player-progress" class="h-full bg-yt-accent w-0 relative">
@@ -224,17 +252,17 @@
             </div>
 
             <!-- Left: Info & Time -->
-            <div class="flex items-center gap-4 w-1/3 truncate">
+            <div id="player-info-left" class="flex items-center gap-4 w-1/3 truncate">
                 <div class="w-12 h-12 rounded bg-yt-surface flex-shrink-0 flex items-center justify-center overflow-hidden">
                     <img id="player-art" src="" class="w-full h-full object-cover hidden">
                     <i id="player-placeholder" class="ph ph-music-notes text-2xl text-yt-textMuted"></i>
                 </div>
                 <div class="truncate flex items-center gap-3">
                     <div class="truncate">
-                        <h4 id="player-title" class="text-sm font-semibold truncate max-w-[150px]">Not Playing</h4>
-                        <p id="player-artist" class="text-xs text-yt-textMuted truncate max-w-[150px]">Select a track</p>
+                        <h4 id="player-title" class="text-sm font-semibold truncate max-w-[120px] md:max-w-[150px]">Not Playing</h4>
+                        <p id="player-artist" class="text-xs text-yt-textMuted truncate max-w-[120px] md:max-w-[150px]">Select a track</p>
                     </div>
-                    <div class="flex items-center gap-1 text-[10px] text-yt-textMuted font-medium whitespace-nowrap bg-white/5 px-2 py-1 rounded">
+                    <div class="hidden sm:flex items-center gap-1 text-[10px] text-yt-textMuted font-medium whitespace-nowrap bg-white/5 px-2 py-1 rounded">
                         <span id="time-current">0:00</span>
                         <span class="opacity-40">/</span>
                         <span id="time-total">0:00</span>
@@ -242,25 +270,25 @@
                 </div>
             </div>
 
-            <!-- Center: Controls + Vote Buttons -->
-            <div class="flex items-center justify-center w-1/3 gap-6">
-                <div class="flex items-center gap-6">
-                    <button id="btn-prev" class="text-yt-textMuted hover:text-white transition active:scale-90"><i class="ph-fill ph-skip-back text-2xl"></i></button>
-                    <button id="play-pause-btn" class="w-12 h-12 bg-white text-black rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition">
-                        <i id="play-icon" class="ph-fill ph-play text-2xl"></i>
+            <!-- Center: Controls -->
+            <div id="player-controls-center" class="flex items-center justify-center w-1/3 gap-4 md:gap-6">
+                <div class="flex items-center gap-4 md:gap-6">
+                    <button id="btn-prev" class="text-yt-textMuted hover:text-white transition active:scale-90"><i class="ph-fill ph-skip-back text-xl md:text-2xl"></i></button>
+                    <button id="play-pause-btn" class="w-10 h-10 md:w-12 md:h-12 bg-white text-black rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition">
+                        <i id="play-icon" class="ph-fill ph-play text-xl md:text-2xl"></i>
                     </button>
-                    <button id="btn-next" class="text-yt-textMuted hover:text-white transition active:scale-90"><i class="ph-fill ph-skip-forward text-2xl"></i></button>
+                    <button id="btn-next" class="text-yt-textMuted hover:text-white transition active:scale-90"><i class="ph-fill ph-skip-forward text-xl md:text-2xl"></i></button>
                 </div>
-                <div class="flex items-center gap-4 pl-4 border-l border-white/10">
+                <div class="hidden md:flex items-center gap-3 pl-4 border-l border-white/10">
                     <button id="btn-like" class="text-yt-textMuted hover:text-white transition"><i class="ph ph-thumbs-up text-xl"></i></button>
                     <button id="btn-dislike" class="text-yt-textMuted hover:text-white transition"><i class="ph ph-thumbs-down text-xl"></i></button>
                 </div>
             </div>
 
             <!-- Right: Volume -->
-            <div class="w-1/3 flex justify-end items-center gap-4 text-yt-textMuted">
+            <div id="player-volume-right" class="w-1/3 flex justify-end items-center gap-4 text-yt-textMuted">
                 <i class="ph ph-speaker-high text-xl" id="vol-icon"></i>
-                <div class="w-32 flex items-center">
+                <div class="w-24 lg:w-32 flex items-center">
                     <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="1" class="w-full accent-yt-accent">
                 </div>
             </div>
@@ -270,6 +298,28 @@
     <audio id="audio-engine"></audio>
 
     <script>
+        // PWA Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                const swCode = `
+                    const CACHE_NAME = 'trickster-cache-v1';
+                    self.addEventListener('install', (event) => {
+                        event.waitUntil(caches.open(CACHE_NAME));
+                    });
+                    self.addEventListener('fetch', (event) => {
+                        event.respondWith(
+                            caches.match(event.request).then((response) => {
+                                return response || fetch(event.request);
+                            })
+                        );
+                    });
+                `;
+                const blob = new Blob([swCode], { type: 'application/javascript' });
+                const swUrl = URL.createObjectURL(blob);
+                navigator.serviceWorker.register(swUrl).catch(err => console.log('SW failed', err));
+            });
+        }
+
         const REPO_OWNER = 'TruStoreOfficial';
         const REPO_NAME = 'trickster.music';
         const BASE_PATH = 'localhost';
@@ -336,6 +386,7 @@
             elements.btnNext.onclick = playNext;
             elements.btnPrev.onclick = playPrev;
 
+            // Handle touch and click for progress
             const handleProgressInput = (clientX) => {
                 if (!elements.audio.duration) return;
                 const rect = elements.progressContainer.getBoundingClientRect();
@@ -345,18 +396,26 @@
                 elements.timeCurrent.textContent = formatTime(elements.audio.currentTime);
             };
 
-            elements.progressContainer.onmousedown = (e) => {
+            elements.progressContainer.addEventListener('mousedown', (e) => {
                 isDraggingProgress = true;
                 handleProgressInput(e.clientX);
-            };
+            });
+            
+            elements.progressContainer.addEventListener('touchstart', (e) => {
+                isDraggingProgress = true;
+                handleProgressInput(e.touches[0].clientX);
+            }, {passive: true});
 
             window.addEventListener('mousemove', (e) => {
                 if (isDraggingProgress) handleProgressInput(e.clientX);
             });
+            
+            window.addEventListener('touchmove', (e) => {
+                if (isDraggingProgress) handleProgressInput(e.touches[0].clientX);
+            }, {passive: true});
 
-            window.addEventListener('mouseup', () => {
-                isDraggingProgress = false;
-            });
+            window.addEventListener('mouseup', () => isDraggingProgress = false);
+            window.addEventListener('touchend', () => isDraggingProgress = false);
 
             elements.volumeSlider.oninput = (e) => {
                 const vol = e.target.value;
@@ -367,8 +426,8 @@
                 else icon.className = "ph ph-speaker-high text-xl";
             };
 
-            elements.btnLike.onclick = () => handleVote('like');
-            elements.btnDislike.onclick = () => handleVote('dislike');
+            if (elements.btnLike) elements.btnLike.onclick = () => handleVote('like');
+            if (elements.btnDislike) elements.btnDislike.onclick = () => handleVote('dislike');
 
             if (elements.audio) {
                 elements.audio.ontimeupdate = () => {
@@ -461,6 +520,8 @@
                 btn.classList.toggle('active', btn.innerText.toLowerCase().includes(tab.toLowerCase()));
             });
             renderView();
+            // Scroll to top when switching
+            document.getElementById('main-scroll-area').scrollTop = 0;
         }
 
         function renderView() {
@@ -476,7 +537,7 @@
                 });
             } else if (activeTab === 'explore') {
                 const shuffled = [...allSongs].sort(() => 0.5 - Math.random());
-                contentToRender['Fresh Finds'] = shuffled.slice(0, 20);
+                contentToRender['Fresh Finds'] = shuffled.slice(0, 24);
             } else if (activeTab === 'playlists') {
                 Object.keys(library).forEach(cat => {
                     if (cat.startsWith('Playlist: ')) {
@@ -484,13 +545,13 @@
                     }
                 });
                 if (Object.keys(contentToRender).length === 0) {
-                    container.innerHTML = `<div class="py-20 text-center text-yt-textMuted">No playlists found in ${PLAYLIST_BASE}.</div>`;
+                    container.innerHTML = `<div class="py-20 text-center text-yt-textMuted">No playlists found.</div>`;
                     return;
                 }
             } else if (activeTab === 'liked') {
                 const likedTracks = allSongs.filter(s => userLikes.liked.includes(s.id));
                 if (likedTracks.length === 0) {
-                    container.innerHTML = `<div class="py-20 text-center text-yt-textMuted">No liked songs yet. Tap the thumb up!</div>`;
+                    container.innerHTML = `<div class="py-20 text-center text-yt-textMuted">No liked songs yet.</div>`;
                     return;
                 }
                 contentToRender['Favorites'] = likedTracks;
@@ -501,14 +562,13 @@
                 const section = document.createElement('div');
                 section.className = 'mb-10';
                 
-                // Use different layout for Explore (Grid) vs others (Rows)
                 const listClass = isExploreGrid 
-                    ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 px-2 pb-4'
+                    ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6 px-2 pb-4'
                     : 'flex overflow-x-auto hide-scrollbar gap-5 px-2 pb-4';
 
                 section.innerHTML = `
-                    <div class="px-2 mb-4">
-                        <h2 class="text-2xl font-bold tracking-tight">${category}</h2>
+                    <div class="px-2 mb-4 flex items-center justify-between">
+                        <h2 class="text-xl md:text-2xl font-bold tracking-tight">${category}</h2>
                     </div>
                     <div class="${listClass}" id="row-${safeId}"></div>
                 `;
@@ -519,7 +579,7 @@
                     const card = document.createElement('div');
                     card.className = isExploreGrid 
                         ? 'cursor-pointer group' 
-                        : 'flex-none w-40 md:w-48 cursor-pointer group';
+                        : 'flex-none w-36 md:w-48 cursor-pointer group';
                     
                     card.onclick = () => {
                         currentPlaylist = [...songs];
@@ -530,13 +590,13 @@
                         <div class="relative aspect-square mb-3 rounded-xl overflow-hidden bg-yt-surface album-art-container shadow-lg">
                             <img src="${song.cover}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500" loading="lazy">
                             <div class="play-overlay absolute inset-0 flex items-center justify-center">
-                                <div class="w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-2xl">
+                                <div class="w-10 h-10 md:w-12 md:h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-2xl">
                                     <i class="ph-fill ph-play text-white text-xl flex items-center justify-center ml-1"></i>
                                 </div>
                             </div>
                         </div>
-                        <h3 class="font-semibold text-sm truncate pr-2">${song.title}</h3>
-                        <p class="text-xs text-yt-textMuted truncate">${song.artist}</p>
+                        <h3 class="font-semibold text-xs md:text-sm truncate pr-2">${song.title}</h3>
+                        <p class="text-[10px] md:text-xs text-yt-textMuted truncate">${song.artist}</p>
                     `;
                     row.appendChild(card);
                 });
@@ -596,15 +656,18 @@
         function handleVote(type) {
             if (currentIndex === -1 || !currentPlaylist[currentIndex]) return;
             const song = currentPlaylist[currentIndex];
-            const other = type === 'like' ? 'disliked' : 'liked';
             const target = type === 'like' ? 'liked' : 'disliked';
+            const opposite = type === 'like' ? 'disliked' : 'liked';
             
-            userLikes[other] = userLikes[other].filter(id => id !== song.id);
+            // Toggle current vote
             if (userLikes[target].includes(song.id)) {
                 userLikes[target] = userLikes[target].filter(id => id !== song.id);
             } else {
                 userLikes[target].push(song.id);
+                // Remove from opposite list if exists
+                userLikes[opposite] = userLikes[opposite].filter(id => id !== song.id);
             }
+            
             setCookie('trickster_likes', userLikes);
             updateLikeUI(song.id);
             
@@ -612,19 +675,20 @@
         }
 
         function updateLikeUI(songId) {
+            if (!elements.btnLike || !elements.btnDislike) return;
             const isLiked = userLikes.liked.includes(songId);
             const isDisliked = userLikes.disliked.includes(songId);
-            
+
             elements.btnLike.className = isLiked ? "text-yt-accent transition scale-110" : "text-yt-textMuted hover:text-white transition";
             elements.btnLike.innerHTML = isLiked ? '<i class="ph-fill ph-thumbs-up text-xl"></i>' : '<i class="ph ph-thumbs-up text-xl"></i>';
             
-            elements.btnDislike.className = isDisliked ? "text-yt-accent transition scale-110" : "text-yt-textMuted hover:text-white transition";
+            elements.btnDislike.className = isDisliked ? "text-white transition scale-110" : "text-yt-textMuted hover:text-white transition";
             elements.btnDislike.innerHTML = isDisliked ? '<i class="ph-fill ph-thumbs-down text-xl"></i>' : '<i class="ph ph-thumbs-down text-xl"></i>';
         }
 
         function setPlayState(playing) {
             isPlaying = playing;
-            elements.playIcon.className = isPlaying ? "ph-fill ph-pause text-2xl" : "ph-fill ph-play text-2xl";
+            elements.playIcon.className = isPlaying ? "ph-fill ph-pause text-xl md:text-2xl" : "ph-fill ph-play text-xl md:text-2xl";
         }
 
         function enterApp() {
