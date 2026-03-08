@@ -4,3 +4,6 @@
 
 ## Why?
 This folder contains all the [host code] , [details on how to use files] , and [music]
+
+## Music Genre
+Electronic and Dance
