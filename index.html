@@ -202,7 +202,7 @@
             <main class="pt-6 px-4 md:px-8 pb-10" id="library-content">
                 <div id="global-loader" class="flex flex-col items-center justify-center py-20 gap-4">
                     <div class="spinner"></div>
-                    <p class="text-yt-textMuted animate-pulse">Syncing tracks from multiple sources...</p>
+                    <p class="text-yt-textMuted animate-pulse">Syncing tracks from GitHub DB...</p>
                 </div>
             </main>
         </div>
@@ -339,16 +339,10 @@
         }
 
         const REPO_OWNER = 'TruStoreOfficial';
-        
-        // Original Repo
         const REPO_NAME = 'trickster.music';
         const BASE_PATH = 'localhost';
         const PLAYLIST_BASE = 'RenderX';
         const ALBUM_BASE = 'AlbumX Loader';
-        
-        // Extended Library Repo
-        const NEW_REPO_NAME = 'trickster.music.library';
-
         const CATEGORIES = ['Phonk', 'J-Pop', 'Electronic', 'Memes', 'Pop', 'Rap', 'Rock'];
 
         let elements = {};
@@ -407,10 +401,12 @@
             elements.loginForm.onsubmit = (e) => { e.preventDefault(); enterApp(); };
             elements.guestBtn.onclick = enterApp;
             
+            // Sync controls for normal and FS player
             [elements.playPauseBtn, document.getElementById('fs-btn-play')].forEach(btn => btn.onclick = togglePlay);
             [elements.btnNext, document.getElementById('fs-btn-next')].forEach(btn => btn.onclick = playNext);
             [elements.btnPrev, document.getElementById('fs-btn-prev')].forEach(btn => btn.onclick = playPrev);
 
+            // Progress Bar Inputs
             const setupProgressHandling = (containerId) => {
                 const container = document.getElementById(containerId);
                 const handleInput = (clientX) => {
@@ -458,6 +454,7 @@
             window.addEventListener('mouseup', () => isDraggingProgress = false);
             window.addEventListener('touchend', () => isDraggingProgress = false);
 
+            // Volume setup
             elements.volumeSlider.oninput = (e) => {
                 const vol = e.target.value;
                 elements.audio.volume = vol;
@@ -467,6 +464,7 @@
                 else icon.className = "ph ph-speaker-high text-xl";
             };
 
+            // Likes setup
             if (elements.btnLike) elements.btnLike.onclick = () => handleVote('like');
             if (elements.btnDislike) elements.btnDislike.onclick = () => handleVote('dislike');
             document.getElementById('fs-btn-like').onclick = () => handleVote('like');
@@ -491,17 +489,20 @@
                 
                 elements.audio.onended = () => {
                     if (repeatState === 2) {
+                        // Repeat One
                         elements.audio.currentTime = 0;
                         elements.audio.play().catch(e => console.error(e));
                     } else if (currentPlaylist.length > 0 && currentIndex < currentPlaylist.length - 1) {
                         playNext();
                     } else if (repeatState === 1 && currentPlaylist.length > 0) {
+                        // Repeat All
                         currentIndex = 0;
                         playTrack(currentPlaylist[0]);
                     }
                 };
             }
 
+            // Mobile FS Player swipe to dismiss logic
             let startY = 0;
             const fsPlayer = document.getElementById('mobile-fs-player');
             fsPlayer.addEventListener('touchstart', e => {
@@ -529,131 +530,84 @@
 
         async function fetchSongsFromRepo() {
             try {
-                const fetchPromises = [];
-
-                // 1. Original Repo Categories
+                // 1. Fetch Categories/Localhost
                 for (const cat of CATEGORIES) {
-                    fetchPromises.push(
-                        fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${BASE_PATH}/${cat}`)
-                        .then(res => res.ok ? res.json() : [])
-                        .then(files => {
-                            if (!Array.isArray(files)) return;
-                            const audioFiles = mapFilesToSongs(files, cat, GENRE_COVERS[cat]);
-                            if (audioFiles.length > 0) {
-                                if(!library[cat]) library[cat] = [];
-                                library[cat].push(...audioFiles);
-                                audioFiles.forEach(s => { if (!allSongs.find(exist => exist.id === s.id)) allSongs.push(s); });
-                            }
-                        }).catch(() => {})
-                    );
+                    const apiUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${BASE_PATH}/${cat}`;
+                    const response = await fetch(apiUrl);
+                    if (!response.ok) continue;
+                    const files = await response.json();
+                    const audioFiles = mapFilesToSongs(files, cat, GENRE_COVERS[cat]);
+                    if (audioFiles.length > 0) {
+                        library[cat] = audioFiles;
+                        audioFiles.forEach(s => { if (!allSongs.find(exist => exist.id === s.id)) allSongs.push(s); });
+                    }
                 }
 
-                // Helper to fetch Directories and Sub-directories 
-                // flattenCategory forces all found songs (even in subfolders) into ONE specific genre/category.
-                const fetchDir = async (repoName, path, prefix, flattenCategory = null) => {
-                    try {
-                        const res = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${repoName}/contents/${path}`);
-                        if (!res.ok) return;
-                        const items = await res.json();
-                        if (!Array.isArray(items)) return;
-
-                        // Process direct files in the folder
-                        const files = items.filter(i => i.type === 'file');
-                        if (files.length > 0) {
-                            const defaultCover = files.find(f => f.name.match(/\.(jpg|jpeg|png|webp|gif)$/i));
-                            const defaultArtist = path.split('/').pop();
-                            const audioFiles = mapFilesToSongs(files, defaultArtist, defaultCover?.download_url);
-                            
+                // 2. Fetch Playlists (RenderX)
+                try {
+                    const rxUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${PLAYLIST_BASE}`;
+                    const rxResponse = await fetch(rxUrl);
+                    if (rxResponse.ok) {
+                        const rxDirs = await rxResponse.json();
+                        const playlists = rxDirs.filter(item => item.type === 'dir');
+                        for (const pl of playlists) {
+                            const plRes = await fetch(pl.url);
+                            if (!plRes.ok) continue;
+                            const plFiles = await plRes.json();
+                            const defaultPlCover = plFiles.find(f => f.name.match(/\.(jpg|jpeg|png|webp|gif)$/i));
+                            const audioFiles = mapFilesToSongs(plFiles, pl.name.replace(/%20/g, ' '), defaultPlCover?.download_url);
                             if (audioFiles.length > 0) {
-                                const libKey = flattenCategory || (prefix ? `${prefix} ${path}` : path);
-                                if(!library[libKey]) library[libKey] = [];
-                                library[libKey].push(...audioFiles);
+                                library[`Playlist: ${pl.name.replace(/%20/g, ' ')}`] = audioFiles;
                                 audioFiles.forEach(s => { if (!allSongs.find(exist => exist.id === s.id)) allSongs.push(s); });
                             }
                         }
+                    }
+                } catch(e) {}
 
-                        // Process sub-folders
-                        const dirs = items.filter(i => i.type === 'dir');
-                        const dirPromises = dirs.map(async (dir) => {
-                            const dirRes = await fetch(dir.url);
-                            if (!dirRes.ok) return;
-                            const dirFiles = await dirRes.json();
-                            const defaultCover = dirFiles.find(f => f.name.match(/\.(jpg|jpeg|png|webp|gif)$/i));
-                            const dirName = dir.name.replace(/%20/g, ' ');
-                            
-                            const audioFiles = mapFilesToSongs(dirFiles, dirName, defaultCover?.download_url);
+                // 3. Fetch Albums (AlbumX Loader)
+                try {
+                    const albumUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${ALBUM_BASE}`;
+                    const albumRes = await fetch(albumUrl);
+                    if (albumRes.ok) {
+                        const albumDirs = await albumRes.json();
+                        const albums = albumDirs.filter(item => item.type === 'dir');
+                        for (const al of albums) {
+                            const alRes = await fetch(al.url);
+                            if (!alRes.ok) continue;
+                            const alFiles = await alRes.json();
+                            const defaultAlCover = alFiles.find(f => f.name.match(/\.(jpg|jpeg|png|webp|gif)$/i));
+                            const audioFiles = mapFilesToSongs(alFiles, al.name.replace(/%20/g, ' '), defaultAlCover?.download_url);
                             if (audioFiles.length > 0) {
-                                // If flattenCategory is set (like 'Singles'), it dumps all these folder's songs into that one row
-                                // Otherwise, it makes a new row for each folder (like Albums/Playlists)
-                                const libKey = flattenCategory || (prefix ? `${prefix} ${dirName}` : dirName);
-                                if(!library[libKey]) library[libKey] = [];
-                                library[libKey].push(...audioFiles);
+                                library[`Album: ${al.name.replace(/%20/g, ' ')}`] = audioFiles;
                                 audioFiles.forEach(s => { if (!allSongs.find(exist => exist.id === s.id)) allSongs.push(s); });
                             }
-                        });
-                        
-                        await Promise.allSettled(dirPromises);
-                    } catch(e) {}
-                };
+                        }
+                    }
+                } catch(e) {}
 
-                // Original Repo
-                fetchPromises.push(fetchDir(REPO_NAME, PLAYLIST_BASE, 'Playlist:'));
-                fetchPromises.push(fetchDir(REPO_NAME, ALBUM_BASE, 'Album:'));
-
-                // Extended Library Repo
-                fetchPromises.push(fetchDir(NEW_REPO_NAME, 'Albums', 'Album:'));
-                fetchPromises.push(fetchDir(NEW_REPO_NAME, 'Playlists', 'Playlist:'));
-                
-                // For the Songs directory, we pass 'Singles' to flatten all the subfolders into one row!
-                fetchPromises.push(fetchDir(NEW_REPO_NAME, 'Songs', '', 'Singles'));
-
-                // Execute all fetches concurrently for speed
-                await Promise.allSettled(fetchPromises);
                 switchTab('home');
-
             } catch (err) {
                 console.error("Fetch Error:", err);
-                switchTab('home');
             }
         }
 
         function mapFilesToSongs(files, defaultArtist, defaultCover) {
-            if (!Array.isArray(files)) return [];
-            
-            return files.filter(file => file.name.match(/\.(mp3|wav|mp4|m4a|ogg|flac)$/i)).map(file => {
+            return files.filter(file => file.name.match(/\.(mp3|wav|mp4|m4a)$/i)).map(file => {
                 const fileName = file.name.replace(/\.[^/.]+$/, "");
-                
-                // Prioritize Exact Artwork matching the song name
-                const artworkFile = files.find(f => 
-                    f.name.startsWith(fileName) && 
-                    f.name.match(/\.(jpg|jpeg|png|webp|gif)$/i) &&
-                    f.name !== file.name
-                );
-                
+                const artworkFile = files.find(f => f.name.startsWith(fileName) && f.name.match(/\.(jpg|jpeg|png|webp|gif)$/i));
                 let title = fileName;
                 let artist = defaultArtist;
-
                 if (fileName.includes(" - ")) {
                     const parts = fileName.split(" - ");
                     artist = parts[0].trim();
                     title = parts[1].trim();
-                } else if (fileName.includes("-")) {
-                    const parts = fileName.split("-");
-                    if (parts.length >= 2) {
-                        artist = parts[0].trim();
-                        title = parts.slice(1).join("-").trim();
-                    }
                 }
-
-                // Cover art hierarchy
-                const finalCover = artworkFile ? artworkFile.download_url : (defaultCover || GENRE_COVERS['Pop']);
-
                 return {
                     id: file.sha,
                     title: title.replace(/[_-]/g, " "),
                     artist: artist.replace(/[_-]/g, " "),
                     url: file.download_url,
-                    cover: finalCover
+                    cover: artworkFile ? artworkFile.download_url : (defaultCover || GENRE_COVERS['Pop'] || GENRE_COVERS['Rock'])
                 };
             });
         }
@@ -661,10 +615,12 @@
         function switchTab(tab) {
             activeTab = tab;
             
+            // Desktop active state
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.classList.toggle('active', btn.innerText.toLowerCase().includes(tab.toLowerCase()));
             });
 
+            // Mobile active state mapping (updating icons and text color)
             const mobileTabs = ['home', 'explore', 'albums', 'playlists'];
             mobileTabs.forEach(t => {
                 const btn = document.getElementById(`mob-${t}`);
@@ -694,14 +650,14 @@
 
             if (activeTab === 'home') {
                 Object.keys(library).forEach(cat => {
-                    if (!cat.startsWith('Playlist:') && !cat.startsWith('Album:')) contentToRender[cat] = library[cat];
+                    if (!cat.startsWith('Playlist: ') && !cat.startsWith('Album: ')) contentToRender[cat] = library[cat];
                 });
             } else if (activeTab === 'explore') {
                 const shuffled = [...allSongs].sort(() => 0.5 - Math.random());
                 contentToRender['Fresh Finds'] = shuffled.slice(0, 24);
             } else if (activeTab === 'playlists') {
                 Object.keys(library).forEach(cat => {
-                    if (cat.startsWith('Playlist:')) contentToRender[cat.replace('Playlist: ', '')] = library[cat];
+                    if (cat.startsWith('Playlist: ')) contentToRender[cat.replace('Playlist: ', '')] = library[cat];
                 });
                 if (Object.keys(contentToRender).length === 0) {
                     container.innerHTML = `<div class="py-20 text-center text-yt-textMuted">No playlists found.</div>`;
@@ -709,7 +665,7 @@
                 }
             } else if (activeTab === 'albums') {
                 Object.keys(library).forEach(cat => {
-                    if (cat.startsWith('Album:')) contentToRender[cat.replace('Album: ', '')] = library[cat];
+                    if (cat.startsWith('Album: ')) contentToRender[cat.replace('Album: ', '')] = library[cat];
                 });
                 if (Object.keys(contentToRender).length === 0) {
                     container.innerHTML = `<div class="py-20 text-center text-yt-textMuted">No albums synced yet.</div>`;
@@ -725,8 +681,6 @@
             }
 
             for (const [category, songs] of Object.entries(contentToRender)) {
-                if (!songs || songs.length === 0) continue;
-
                 const safeId = category.replace(/[^a-zA-Z0-9]/g, '');
                 const section = document.createElement('div');
                 section.className = 'mb-10';
@@ -789,12 +743,14 @@
                 if (e.name !== "AbortError") console.error(e);
             }
 
+            // Update Normal Player
             elements.playerTitle.textContent = song.title;
             elements.playerArtist.textContent = song.artist;
             elements.playerArt.src = song.cover;
             elements.playerArt.classList.remove('hidden');
             elements.playerPlaceholder.classList.add('hidden');
 
+            // Update FS Player
             document.getElementById('fs-title').textContent = song.title;
             document.getElementById('fs-artist').textContent = song.artist;
             document.getElementById('fs-art').src = song.cover;
@@ -822,6 +778,7 @@
                 currentIndex++;
                 playTrack(currentPlaylist[currentIndex]);
             } else if (repeatState === 1 && currentPlaylist.length > 0) {
+                // Loop back if Repeat All is active
                 currentIndex = 0;
                 playTrack(currentPlaylist[0]);
             }
@@ -883,6 +840,7 @@
             const isLiked = userLikes.liked.includes(songId);
             const isDisliked = userLikes.disliked.includes(songId);
 
+            // Normal Player
             if (elements.btnLike && elements.btnDislike) {
                 elements.btnLike.className = isLiked ? "text-yt-accent transition scale-110" : "text-yt-textMuted hover:text-white transition";
                 elements.btnLike.innerHTML = isLiked ? '<i class="ph-fill ph-thumbs-up text-xl"></i>' : '<i class="ph ph-thumbs-up text-xl"></i>';
@@ -890,6 +848,7 @@
                 elements.btnDislike.innerHTML = isDisliked ? '<i class="ph-fill ph-thumbs-down text-xl"></i>' : '<i class="ph ph-thumbs-down text-xl"></i>';
             }
 
+            // FS Player
             const fsBtnLike = document.getElementById('fs-btn-like');
             const fsBtnDislike = document.getElementById('fs-btn-dislike');
             if (fsBtnLike && fsBtnDislike) {
